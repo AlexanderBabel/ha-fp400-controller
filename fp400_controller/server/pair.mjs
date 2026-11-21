@@ -36,15 +36,18 @@ export function selectDevice(parsed, discovered) {
   return { setup_pin_code: payload.setup_pin_code, filter_type: 2, filter: device.long_discriminator, discovery_timeout_s: 90 };
 }
 
+const serial = node => node?.attributes?.['0/40/15'];
+
 export class Pairer {
   constructor(rpc) {
     this.rpc = rpc;
     this.state = { phase: 'idle' };
     this.running = false;
   }
+  // Every node on this controller must be an FP400; anything else stops the app's pairing.
   async nodes() {
     const nodes = await this.rpc('get_nodes');
-    if (!Array.isArray(nodes) || nodes.length > 1 || nodes.some(node => !fp400(node))) throw new Error('unexpected_controller_device');
+    if (!Array.isArray(nodes) || nodes.some(node => !fp400(node))) throw new Error('unexpected_controller_device');
     return nodes;
   }
   start(input) {
@@ -55,11 +58,19 @@ export class Pairer {
     this.state = { phase: 'checking' };
     this.task = this.run(code).finally(() => { this.running = false; });
   }
+  // Success needs evidence: a node that was not there before, online.
+  async added(before) {
+    const nodes = await this.nodes();
+    const fresh = nodes.filter(node => !before.has(node.node_id));
+    if (fresh.length !== 1 || !fresh[0].available) return null;
+    const twin = nodes.some(node => node.node_id !== fresh[0].node_id && serial(node) && serial(node) === serial(fresh[0]));
+    return twin ? 'duplicate_device' : 'paired';
+  }
   async run(code) {
     let commissionStarted = false;
+    let before = new Set();
     try {
-      const existing = await this.nodes();
-      if (existing.length) { this.state = { phase: 'paired' }; return; }
+      before = new Set((await this.nodes()).map(node => node.node_id));
       const parsed = await this.rpc('parse_onboarding_payload', { code });
       this.state = { phase: 'discovering' };
       const discovered = await this.rpc('discover', {}, 20000);
@@ -67,14 +78,14 @@ export class Pairer {
       this.state = { phase: 'pairing' };
       commissionStarted = true;
       await this.rpc('commission_on_network', args, 240000);
-      const nodes = await this.nodes();
-      if (nodes.length !== 1 || !nodes[0].available) throw new Error('verification_pending');
-      this.state = { phase: 'paired' };
+      const result = await this.added(before);
+      if (!result) throw new Error('verification_pending');
+      this.state = result === 'paired' ? { phase: 'paired' } : { phase: 'error', error: result };
     } catch (error) {
       // A timed-out command may have completed on the server. Check before permitting retry.
       try {
-        const nodes = await this.nodes();
-        if (nodes.length === 1 && nodes[0].available) { this.state = { phase: 'paired' }; return; }
+        const result = commissionStarted && await this.added(before);
+        if (result) { this.state = result === 'paired' ? { phase: 'paired' } : { phase: 'error', error: result }; return; }
       } catch { /* No success without evidence. */ }
       const known = new Set(['invalid_code', 'one_device_only', 'wrong_device', 'not_discovered',
         'ambiguous_device', 'unexpected_controller_device', 'verification_pending']);

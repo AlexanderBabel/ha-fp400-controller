@@ -4,7 +4,8 @@ const messages = {
   idle: 'Not paired yet.', checking: 'Checking for an existing pairing …',
   discovering: 'Looking for the shared FP400 on the network …',
   pairing: 'Pairing. This can take a few minutes.',
-  paired: 'The FP400 is paired.',
+  paired: 'The FP400 is paired. Pair another one with a new code.',
+  duplicate_device: 'That FP400 was already paired here and is now on this controller twice. Remove the newer node before using it.',
   invalid_code: 'That code is not valid. Create a new one with Share device and paste all of it.',
   one_device_only: 'Use the code of one FP400 only.',
   wrong_device: 'The device found is not an FP400. Nothing was paired.',
@@ -15,9 +16,8 @@ const messages = {
   pairing_failed: 'Pairing not confirmed. Wait a minute; if the FP400 still does not show as paired, create a new code.',
   pairing_uncertain: 'The attempt did not clearly finish. Wait a minute, then restart only this app before trying again.',
 };
-const yesNo = value => value === true ? 'Yes' : value === false ? 'No' : 'Unknown';
 function updateButton() {
-  byId('pair').disabled = !state?.controller || state?.paired !== false || pairing ||
+  byId('pair').disabled = !state?.controller || !state?.sensors || pairing ||
     state?.pairing.phase === 'uncertain' || !byId('only-fp400').checked || !byId('code').value.trim();
 }
 async function refresh() {
@@ -28,10 +28,15 @@ async function refresh() {
     pairing = ['checking', 'discovering', 'pairing'].includes(state.pairing.phase);
     byId('connection').textContent = state.controller ? 'Controller ready · regular Matter Server untouched' : 'Controller not ready yet. Give it a minute after the first start.';
     byId('controller-state').textContent = state.controller ? 'Ready' : 'Not ready';
-    byId('saved-state').textContent = yesNo(state.paired);
-    byId('sensor-state').textContent = yesNo(state.available);
+    const sensors = state.sensors;
+    byId('saved-state').textContent = sensors ? String(sensors.length) : 'Unknown';
+    byId('sensor-state').textContent = sensors ? `${sensors.filter(s => s.available).length} of ${sensors.length}` : 'Unknown';
     byId('app-version').textContent = state.appVersion || 'Unknown';
-    byId('pair-section').hidden = state.paired === true;
+    byId('sensors').replaceChildren(...(sensors || []).map(s => {
+      const li = document.createElement('li');
+      li.textContent = `${s.name}: ${s.available ? 'online' : 'offline'}`;
+      return li;
+    }));
     byId('pair-state').textContent = messages[state.pairing.error || state.pairing.phase] || '';
     byId('pair-state').className = ['error', 'uncertain'].includes(state.pairing.phase) ? 'error' : '';
   } catch {

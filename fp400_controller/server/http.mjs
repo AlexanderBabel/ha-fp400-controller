@@ -37,8 +37,7 @@ export function createWizard({ pairer, controllerReady, appVersion = null, allow
         try { ready = controllerReady(); if (ready) nodes = await pairer.nodes(); }
         catch { ready = false; }
         return json(response, 200, { csrf, appVersion, controller: ready, pairing: pairer.state,
-          paired: ready ? nodes.length === 1 : null,
-          available: ready && nodes.length === 1 ? nodes[0].available === true : null });
+          sensors: ready ? nodes.map(node => ({ name: node.attributes?.['0/40/5'] || 'FP400', available: node.available === true })) : null });
       }
       if (request.method !== 'POST' || pathname !== '/api/pair') return json(response, 404, { error: 'Not found.' });
       const token = request.headers['x-fp400-token'];

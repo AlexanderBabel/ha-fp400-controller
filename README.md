@@ -24,8 +24,11 @@ patch that lets it talk to this controller (`ws://127.0.0.1:5581/ws`). The patch
 ## What it does and doesn't do
 
 - The Matter server listens on `127.0.0.1:5581` only. OTA and its dashboard are off.
-- The web UI answers only Supervisor's ingress proxy, needs a CSRF token for pairing, and pairs
-  exactly one device whose vendor and product IDs are the FP400's.
+- The web UI answers only Supervisor's ingress proxy and needs a CSRF token for pairing. Each
+  pairing code must match exactly one advertising device with the FP400's vendor and product IDs.
+- **Several FP400s** can be paired, one code at a time. Every node on this controller must be an
+  FP400; pairing the same sensor twice is reported instead of counted. Each FP400 must already be
+  in Home Assistant's Matter integration, which the integration uses to match it by serial.
 - The Supervisor token is removed before the Matter server starts.
 - No access to `/config`, the Home Assistant API or the Supervisor API beyond reading its own info.
 - Its `/data` holds the pairing: keep it in your backups.

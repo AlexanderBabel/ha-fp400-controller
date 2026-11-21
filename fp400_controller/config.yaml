@@ -1,5 +1,5 @@
 name: FP400 Controller
-version: "1.0.0"
+version: "1.1.0"
 slug: fp400_controller
 description: Separate Matter controller that carries the Aqara FP400's zone and position clusters
 url: https://github.com/AlexanderBabel/ha-fp400-controller

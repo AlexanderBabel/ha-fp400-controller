@@ -1,0 +1,25 @@
+name: FP400 Controller
+version: "1.0.0"
+slug: fp400_controller
+description: Separate Matter controller that carries the Aqara FP400's zone and position clusters
+url: https://github.com/AlexanderBabel/ha-fp400-controller
+arch:
+  - amd64
+  - aarch64
+homeassistant: "2026.9.0"
+stage: experimental
+startup: services
+boot: auto
+init: false
+timeout: 60
+# Matter needs the host's IPv6 and mDNS; the controller itself only listens on 127.0.0.1:5581.
+host_network: true
+ingress: true
+ingress_port: 0
+panel_icon: mdi:radar
+panel_title: FP400 Controller
+panel_admin: true
+options:
+  network_interface: ""
+schema:
+  network_interface: str
